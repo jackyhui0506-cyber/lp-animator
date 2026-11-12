@@ -16,7 +16,7 @@
   --accent:#5a3fd4; --accent-soft:#ece8fd; --accent-ink:#ffffff;
   --canvas:#ffffff; --grid:#eef0f5; --grid2:#dde0ea; --axis:#2a2e40;
   --region:rgba(64,178,96,.26); --region-edge:#3a9b58;
-  --c1:#d33d50; --c2:#2c6be0; --c3:#d48a0e; --sys:#3b4054;
+  --c1:#d33d50; --c2:#2c6be0; --c3:#d48a0e; --c4:#14907f; --c5:#b23aa8; --c6:#7a5a2e; --sys:#3b4054;
   --dot:#1f2433; --ok:#1f8a4c; --warn:#b4560f;
   --f-sans:"IBM Plex Sans","Noto Sans TC",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
@@ -26,14 +26,14 @@
   --accent:#a891ff; --accent-soft:#2a2550; --accent-ink:#14112a;
   --canvas:#141724; --grid:#1d2131; --grid2:#2a2f44; --axis:#c8ccdc;
   --region:rgba(80,200,120,.22); --region-edge:#5fcf86;
-  --c1:#ff6b7c; --c2:#6c9dff; --c3:#f3b445; --sys:#b9bed2;
+  --c1:#ff6b7c; --c2:#6c9dff; --c3:#f3b445; --c4:#45d1bd; --c5:#ea7fe0; --c6:#cfa66e; --sys:#b9bed2;
   --dot:#e7e9f3; --ok:#5fcf86; --warn:#f3a35c; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111320; --panel:#181b29; --panel2:#1d2131; --ink:#e7e9f3; --muted:#9298b0; --line:#2a2f42;
   --accent:#a891ff; --accent-soft:#2a2550; --accent-ink:#14112a;
   --canvas:#141724; --grid:#1d2131; --grid2:#2a2f44; --axis:#c8ccdc;
   --region:rgba(80,200,120,.22); --region-edge:#5fcf86;
-  --c1:#ff6b7c; --c2:#6c9dff; --c3:#f3b445; --sys:#b9bed2;
+  --c1:#ff6b7c; --c2:#6c9dff; --c3:#f3b445; --c4:#45d1bd; --c5:#ea7fe0; --c6:#cfa66e; --sys:#b9bed2;
   --dot:#e7e9f3; --ok:#5fcf86; --warn:#f3a35c; color-scheme:dark}
 
 html,body{height:100%}
@@ -163,7 +163,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
       <div id="sysRows" style="display:grid;gap:8px"></div>
     </section>
     <section class="blk">
-      <h2>限制條件 Constraints <small>Ax + By ? C（最多 3 條）</small></h2>
+      <h2>限制條件 Constraints <small>Ax + By ? C（最多 6 條）</small></h2>
       <div id="cons" style="display:grid;gap:10px"></div>
       <button class="add" id="addC">＋ 新增限制條件</button>
     </section>
@@ -188,7 +188,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 <script>
 (()=>{
 const OPS={'>=':'≥','>':'>','<=':'≤','<':'<'};
-const COLORS=['c1','c2','c3'];
+const COLORS=['c1','c2','c3','c4','c5','c6'];
+const MAXC=COLORS.length;
 const S={
   obj:{a:3,b:2,k:0}, goal:'max',
   sys:{x:{on:true,op:'>='},y:{on:true,op:'>='}},
@@ -296,7 +297,7 @@ function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(raw)));for(cons
 
 function readTokens(){
   const cs=getComputedStyle(document.documentElement);
-  ['canvas','grid','grid2','axis','ink','muted','accent','region','region-edge','c1','c2','c3','sys','dot','panel'].forEach(k=>T[k]=cs.getPropertyValue('--'+k).trim());
+  ['canvas','grid','grid2','axis','ink','muted','accent','region','region-edge','c1','c2','c3','c4','c5','c6','sys','dot','panel'].forEach(k=>T[k]=cs.getPropertyValue('--'+k).trim());
 }
 
 /* line a x + b y = c clipped to the view rectangle, in px */
@@ -356,7 +357,7 @@ function draw(){
     const col=T[COLORS[c.col]];
     ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.setLineDash(c.op.length===1?[8,6]:[]);
     ctx.beginPath();ctx.moveTo(...seg[0]);ctx.lineTo(...seg[1]);ctx.stroke();ctx.restore();
-    drawLabel(seg,[.78,.62,.46][i%3],eqText(c.A,c.B,'=',c.C),col);
+    drawLabel(seg,[.78,.62,.46,.88,.54,.36][i%6],eqText(c.A,c.B,'=',c.C),col);
   });
   // vertices
   if(R.feasible&&R.verts){
@@ -405,7 +406,7 @@ function renderCons(){
       <button class="icon" data-del="${i}" aria-label="刪除限制 ${i+1}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
     <div class="crow">${stepper('cA'+i,c.A)}<span class="var">x</span><span>+</span>${stepper('cB'+i,c.B)}<span class="var">y</span>${opSel('cO'+i,c.op)}${stepper('cC'+i,c.C)}</div>
     <div class="preview" id="pv${i}">${eqText(c.A,c.B,OPS[c.op],c.C)}</div></div>`).join('');
-  $('addC').disabled=S.cons.length>=3;
+  $('addC').disabled=S.cons.length>=MAXC;
 }
 function setFromInput(id,v){
   let m;
@@ -512,7 +513,7 @@ document.addEventListener('change',e=>{
   else if(e.target.tagName==='INPUT'){const v=parseFloat(e.target.value.replace('−','-'));if(isNaN(v))e.target.value=num(0);}
 });
 $('sysRows').addEventListener('click',e=>{const b=e.target.closest('.sw');if(!b)return;const k=b.id.slice(2);S.sys[k].on=!S.sys[k].on;b.setAttribute('aria-checked',S.sys[k].on);update(false);});
-$('addC').onclick=()=>{if(S.cons.length>=3)return;const used=S.cons.map(c=>c.col);const col=[0,1,2].find(i=>!used.includes(i));
+$('addC').onclick=()=>{if(S.cons.length>=MAXC)return;const used=S.cons.map(c=>c.col);const col=COLORS.map((_,i)=>i).find(i=>!used.includes(i));
   S.cons.push({A:1,B:1,op:'<=',C:6,col,on:true});renderCons();update(false);};
 $('gMax').onclick=()=>{S.goal='max';$('gMax').setAttribute('aria-pressed','true');$('gMin').setAttribute('aria-pressed','false');update(false);};
 $('gMin').onclick=()=>{S.goal='min';$('gMin').setAttribute('aria-pressed','true');$('gMax').setAttribute('aria-pressed','false');update(false);};
