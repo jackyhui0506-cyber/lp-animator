@@ -1,5 +1,5 @@
 // 更新內容時，改下面個版本號，iPad 下次有網開就會自動更新
-const CACHE = 'lp-animator-v3';
+const CACHE = 'lp-animator-v4';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
