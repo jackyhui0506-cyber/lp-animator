@@ -190,7 +190,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 const OPS={'>=':'≥','>':'>','<=':'≤','<':'<'};
 const COLORS=['c1','c2','c3'];
 const S={
-  obj:{a:3,b:2}, goal:'max',
+  obj:{a:3,b:2,k:0}, goal:'max',
   sys:{x:{on:true,op:'>='},y:{on:true,op:'>='}},
   cons:[{A:1,B:1,op:'<=',C:10,col:0,on:true},{A:-1,B:2,op:'<=',C:8,col:1,on:true},{A:2,B:-1,op:'<=',C:5,col:2,on:true}],
   showP:true, showInt:false, P:12, hl:null
@@ -216,6 +216,7 @@ function lin(A,B){
   return t.map((p,i)=>i===0?(p[0]==='−'?'−':'')+p[1]:' '+p[0]+' '+p[1]).join('');
 }
 const eqText=(A,B,op,C)=>lin(A,B)+' '+op+' '+num(C).replace('-','−');
+const objText=()=>{const k=S.obj.k,l=lin(S.obj.a,S.obj.b);if(!k)return l;return (l==='0'?'':l+(k<0?' − ':' + '))+(l==='0'&&k<0?'−':'')+num(Math.abs(k));};
 
 /* ---------- math ---------- */
 function norm(A,B,op,C){const s=(op[0]==='>')?-1:1;return{a:s*A,b:s*B,c:s*C,strict:op.length===1};}
@@ -237,7 +238,7 @@ function clip(poly,h){
   if(d.length>1&&Math.hypot(d[0][0]-d[d.length-1][0],d[0][1]-d[d.length-1][1])<1e-7)d.pop();
   return d;
 }
-const val=p=>S.obj.a*p[0]+S.obj.b*p[1];
+const val=p=>S.obj.a*p[0]+S.obj.b*p[1]+S.obj.k;
 const inside=(p,hp)=>hp.every(h=>{const f=h.a*p[0]+h.b*p[1]-h.c;return h.strict?f<-1e-9:f<=1e-9;});
 const onBox=p=>Math.abs(Math.abs(p[0])-BIG)<1e-6||Math.abs(Math.abs(p[1])-BIG)<1e-6;
 
@@ -378,7 +379,7 @@ function draw(){
   }
   // P line
   const {a,b}=S.obj;
-  if(S.showP&&(a||b)){const seg=lineSeg(a,b,S.P);if(seg){
+  if(S.showP&&(a||b)){const seg=lineSeg(a,b,S.P-S.obj.k);if(seg){
     ctx.save();ctx.strokeStyle=T.accent;ctx.lineWidth=2.6;ctx.setLineDash([10,7]);
     ctx.beginPath();ctx.moveTo(...seg[0]);ctx.lineTo(...seg[1]);ctx.stroke();ctx.restore();
     drawLabel(seg,.3,'P = '+num(+S.P.toFixed(2)),T.accent);}}
@@ -393,7 +394,7 @@ function stepper(id,value){
 }
 const opSel=(id,v)=>`<select id="${id}" aria-label="不等號">${Object.entries(OPS).map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
 function renderStatic(){
-  $('objRow').innerHTML=`<span style="font-weight:600;color:var(--accent)">P =</span>${stepper('oa',S.obj.a)}<span class="var">x</span><span>+</span>${stepper('ob',S.obj.b)}<span class="var">y</span>`;
+  $('objRow').innerHTML=`<span style="font-weight:600;color:var(--accent)">P =</span>${stepper('oa',S.obj.a)}<span class="var">x</span><span>+</span>${stepper('ob',S.obj.b)}<span class="var">y</span><span>+</span>${stepper('ok',S.obj.k)}`;
   $('sysRows').innerHTML=['x','y'].map(k=>`<div class="sysrow"><span class="var">${k}</span>${opSel('s'+k,S.sys[k].op)}<span class="zero">0</span><button class="sw" role="switch" id="sw${k}" aria-checked="${S.sys[k].on}" aria-label="啟用 ${k} 限制"></button></div>`).join('');
   renderCons();
 }
@@ -408,7 +409,7 @@ function renderCons(){
 }
 function setFromInput(id,v){
   let m;
-  if(id==='oa')S.obj.a=v;else if(id==='ob')S.obj.b=v;
+  if(id==='oa')S.obj.a=v;else if(id==='ob')S.obj.b=v;else if(id==='ok'){S.P+=v-S.obj.k;S.obj.k=v;}
   else if(m=id.match(/^c([ABC])(\d)$/))S.cons[+m[2]][m[1]]=v;
 }
 function update(refit){
@@ -440,7 +441,7 @@ function renderResult(){
   } else h+=`<div class="verdict">可行域無界，不列出全部整數解（打開「整數解」可看圖中的點）。</div>`;
   if(R.verts.length){
     const sorted=R.verts.slice().sort((p,q)=>Math.atan2(p.p[1]-cy(),p.p[0]-cx())-Math.atan2(q.p[1]-cy(),q.p[0]-cx()));
-    h+=`<table><thead><tr><th>頂點 (x, y)</th><th>P = ${lin(S.obj.a,S.obj.b)}</th></tr></thead><tbody>`+
+    h+=`<table><thead><tr><th>頂點 (x, y)</th><th>P = ${objText()}</th></tr></thead><tbody>`+
       sorted.map(o=>`<tr class="${!o.in?'excl':(!R.unbounded&&R.opt.includes(o)?'best':'')}"><td>(${frac(o.p[0])}, ${frac(o.p[1])})</td><td>${frac(o.v)}</td></tr>`).join('')+'</tbody></table>';
     if(R.verts.some(o=>!o.in))h+=`<p class="hint" style="text-align:left">刪除線 = 頂點在嚴格不等式邊界上，不在可行域內</p>`;
   }
@@ -464,10 +465,30 @@ function animate(){
   else if(S.showInt&&R.intPts){target=R.intBest;hl=R.intPts;}
   else{target=R.best;hl=R.opt.map(o=>o.p);}
   const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const dur=reduce?0:2200,t0=performance.now();
-  const tick=now=>{const t=dur?Math.min(1,(now-t0)/dur):1;const e=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-    S.P=start+(target-start)*e;refreshP();draw();
-    if(t<1)anim.raf=requestAnimationFrame(tick);else{anim=null;S.P=target;S.hl=hl;refreshP();draw();}};
+  if(reduce){S.P=target;S.hl=hl;refreshP();draw();return;}
+  // Stop at every vertex the line passes on the way, then ease slowly into the optimum.
+  const dir=Math.sign(target-start)||1, span=Math.abs(target-start)||1;
+  const stops=R.unbounded?[]:[...new Set(R.verts.map(o=>+o.v.toFixed(9)))]
+    .filter(v=>(v-start)*dir>1e-6&&(target-v)*dir>1e-6).sort((a,b)=>dir*(a-b));
+  stops.push(target);
+  const steps=[];let from=start;
+  stops.forEach((to,i)=>{const last=i===stops.length-1;
+    steps.push({type:'move',from,to,dur:Math.max(600,3200*Math.abs(to-from)/span)*(last?1.5:1),last});
+    if(!last)steps.push({type:'pause',dur:800,hl:R.verts.filter(o=>Math.abs(o.v-to)<1e-6).map(o=>o.p)});
+    from=to;});
+  let k=0,t0=null;
+  const tick=now=>{
+    if(t0===null)t0=now;
+    const st=steps[k],t=Math.min(1,Math.max(0,(now-t0)/st.dur));
+    if(st.type==='move'){
+      const e=st.last?1-Math.pow(1-t,3):(t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2);
+      S.P=st.from+(st.to-st.from)*e;S.hl=null;
+    } else S.hl=st.hl;
+    refreshP();draw();
+    if(t>=1){k++;t0=now;}
+    if(k<steps.length)anim.raf=requestAnimationFrame(tick);
+    else{anim=null;S.P=target;S.hl=hl;refreshP();draw();}
+  };
   anim={raf:requestAnimationFrame(tick)};
 }
 
@@ -505,14 +526,24 @@ $('zFit').onclick=()=>{fit();draw();};
 cv.addEventListener('wheel',e=>{e.preventDefault();const r=cv.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
 
 let drag=null;
-const nearP=(px,py)=>{const{a,b}=S.obj;if(!S.showP||(!a&&!b))return false;const[x,y]=toW(px,py);return Math.abs(a*x+b*y-S.P)/Math.hypot(a,b)*V.s<14;};
+const nearP=(px,py,tol)=>{const{a,b}=S.obj;if(!S.showP||(!a&&!b))return false;return Math.abs(val(toW(px,py))-S.P)/Math.hypot(a,b)*V.s<tol;};
+/* snap P to a vertex (or integer point) when the line passes within 9px of it */
+function snapP(raw){
+  const{a,b}=S.obj,n=Math.hypot(a,b);let best=raw,bd=9;
+  const cands=R.feasible&&R.verts?R.verts.map(o=>o.p):[];
+  if(S.showInt&&R.feasible){const[X0,Y1]=toW(0,0),[X1,Y0]=toW(W(),H());
+    if((X1-X0)*(Y1-Y0)<60000)for(let x=Math.ceil(X0);x<=X1;x++)for(let y=Math.ceil(Y0);y<=Y1;y++)if(inside([x,y],R.hp))cands.push([x,y]);}
+  for(const p of cands){const d=Math.abs(raw-val(p))/n*V.s;if(d<bd){bd=d;best=val(p);}}
+  return best===raw?Math.round(raw*100)/100:best;
+}
 cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
   cv.setPointerCapture(e.pointerId);stopAnim();
-  drag=nearP(px,py)?{mode:'p'}:{mode:'pan',px,py,ox:V.ox,oy:V.oy};
+  const tol=e.pointerType==='touch'?24:14;
+  drag=nearP(px,py,tol)?{mode:'p',off:val(toW(px,py))-S.P}:{mode:'pan',px,py,ox:V.ox,oy:V.oy};
   if(drag.mode==='p'){S.hl=null;cv.style.cursor='grabbing';}});
 cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
-  if(!drag){cv.style.cursor=nearP(px,py)?'grab':'move';return;}
-  if(drag.mode==='p'){const[x,y]=toW(px,py);S.P=Math.round((S.obj.a*x+S.obj.b*y)*100)/100;refreshP();draw();}
+  if(!drag){cv.style.cursor=nearP(px,py,14)?'grab':'move';return;}
+  if(drag.mode==='p'){S.P=snapP(val(toW(px,py))-drag.off);refreshP();draw();}
   else{V.ox=drag.ox-(px-drag.px)/V.s;V.oy=drag.oy+(py-drag.py)/V.s;draw();}});
 const end=()=>{drag=null;cv.style.cursor='';};
 cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
