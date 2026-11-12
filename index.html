@@ -1,0 +1,535 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#5a3fd4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LP Animator">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Linear Programming Animator</title>
+<style>
+/* Layout: app shell — header bar, control sidebar (left) + full-bleed graph canvas (right); stacks graph-first on phones */
+:root{
+  --bg:#f4f5f9; --panel:#ffffff; --panel2:#f8f8fc; --ink:#1a1d2b; --muted:#666c84; --line:#e2e4ee;
+  --accent:#5a3fd4; --accent-soft:#ece8fd; --accent-ink:#ffffff;
+  --canvas:#ffffff; --grid:#eef0f5; --grid2:#dde0ea; --axis:#2a2e40;
+  --region:rgba(64,178,96,.26); --region-edge:#3a9b58;
+  --c1:#d33d50; --c2:#2c6be0; --c3:#d48a0e; --sys:#3b4054;
+  --dot:#1f2433; --ok:#1f8a4c; --warn:#b4560f;
+  --f-sans:"IBM Plex Sans","Noto Sans TC",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111320; --panel:#181b29; --panel2:#1d2131; --ink:#e7e9f3; --muted:#9298b0; --line:#2a2f42;
+  --accent:#a891ff; --accent-soft:#2a2550; --accent-ink:#14112a;
+  --canvas:#141724; --grid:#1d2131; --grid2:#2a2f44; --axis:#c8ccdc;
+  --region:rgba(80,200,120,.22); --region-edge:#5fcf86;
+  --c1:#ff6b7c; --c2:#6c9dff; --c3:#f3b445; --sys:#b9bed2;
+  --dot:#e7e9f3; --ok:#5fcf86; --warn:#f3a35c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111320; --panel:#181b29; --panel2:#1d2131; --ink:#e7e9f3; --muted:#9298b0; --line:#2a2f42;
+  --accent:#a891ff; --accent-soft:#2a2550; --accent-ink:#14112a;
+  --canvas:#141724; --grid:#1d2131; --grid2:#2a2f44; --axis:#c8ccdc;
+  --region:rgba(80,200,120,.22); --region-edge:#5fcf86;
+  --c1:#ff6b7c; --c2:#6c9dff; --c3:#f3b445; --sys:#b9bed2;
+  --dot:#e7e9f3; --ok:#5fcf86; --warn:#f3a35c; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-sans);font-size:14px}
+.app{display:grid;grid-template-rows:auto 1fr;height:100%}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex:none}
+.brand h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
+.brand p{margin:0;font-size:12px;color:var(--muted)}
+.hbtns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:500 13px var(--f-sans);display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:9px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:focus-visible,select:focus-visible,input:focus-visible,.sw:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.main{display:grid;grid-template-columns:340px 1fr;min-height:0}
+aside{overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);min-width:0}
+section.blk{padding:16px 18px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+.blk h2{margin:0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;
+  display:flex;justify-content:space-between;align-items:center}
+.blk h2 small{text-transform:none;letter-spacing:0;font-weight:400}
+.obj{background:var(--accent-soft)}
+.obj h2{color:var(--accent)}
+.eqrow{display:flex;align-items:center;justify-content:center;gap:6px;font-family:var(--f-mono);font-size:16px;flex-wrap:wrap}
+.eqrow .var{font-style:italic;font-family:"Times New Roman",serif;font-size:19px}
+.big{font-family:var(--f-mono);font-weight:600;color:var(--accent);text-align:center;font-size:20px;font-variant-numeric:tabular-nums}
+.hint{font-size:12px;color:var(--muted);text-align:center;margin:0}
+
+.step{display:grid;grid-template-rows:20px 30px 20px;width:52px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.step button{border:0;background:var(--panel2);color:var(--muted);cursor:pointer;font:500 14px var(--f-mono);padding:0}
+.step button:hover{color:var(--accent)}
+.step input{border:0;border-block:1px solid var(--line);text-align:center;font:600 14px var(--f-mono);width:100%;
+  background:var(--panel);color:var(--ink);padding:0;min-width:0}
+select{font:600 14px var(--f-mono);border:1px solid var(--line);border-radius:7px;padding:5px 4px;background:var(--panel);color:var(--ink);cursor:pointer}
+
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel);justify-self:center}
+.seg button{border:0;background:transparent;padding:6px 14px;font:500 13px var(--f-sans);color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+.sysrow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-family:var(--f-mono)}
+.sysrow .var{font-style:italic;font-family:"Times New Roman",serif;font-size:18px;width:14px}
+.sysrow .zero{margin-right:auto}
+.sw{width:38px;height:22px;border-radius:11px;background:var(--grid2);border:0;position:relative;cursor:pointer;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.sw[aria-checked="true"]{background:var(--accent)}
+.sw[aria-checked="true"]::after{left:19px}
+
+.card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:8px;background:var(--panel)}
+.card.off{opacity:.5}
+.card-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.card-h .dot{width:10px;height:10px;border-radius:50%}
+.card-h .grow{margin-left:auto;display:flex;gap:6px;align-items:center}
+.icon{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px;display:grid}
+.icon:hover{color:var(--c1);background:var(--panel2)}
+.crow{display:flex;align-items:center;gap:5px;font-family:var(--f-mono);flex-wrap:wrap}
+.crow .var{font-style:italic;font-family:"Times New Roman",serif;font-size:17px}
+.preview{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-align:right}
+.add{border:1.5px dashed var(--line);border-radius:12px;background:transparent;padding:10px;color:var(--muted);font:500 13px var(--f-sans);cursor:pointer}
+.add:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.add:disabled{opacity:.5;cursor:not-allowed}
+
+.res{display:grid;gap:8px}
+.verdict{border-radius:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);line-height:1.55}
+.verdict b{font-family:var(--f-mono)}
+.verdict .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-bottom:4px}
+.tag.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.tag.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+th{font:600 11px var(--f-sans);color:var(--muted);text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);letter-spacing:.04em}
+td{padding:5px 6px;border-bottom:1px solid var(--line)}
+td:last-child,th:last-child{text-align:right}
+tr.best td{color:var(--accent);font-weight:600}
+tr.excl td{color:var(--muted);text-decoration:line-through}
+
+.stage{position:relative;min-width:0;min-height:0;background:var(--canvas)}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.readout{position:absolute;top:12px;left:12px;background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);
+  border-radius:10px;padding:6px 12px;font:600 15px var(--f-mono);color:var(--accent);pointer-events:none;font-variant-numeric:tabular-nums}
+.zoom{position:absolute;right:max(14px,env(safe-area-inset-right,0px));bottom:14px;display:grid;gap:6px}
+.zoom button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.zoom button:hover{color:var(--accent);border-color:var(--accent)}
+.legend{position:absolute;left:12px;bottom:12px;display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);
+  background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:10px;padding:6px 10px;pointer-events:none;max-width:calc(100% - 90px)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:16px;height:0;border-top:2px solid}
+
+@media (max-width:860px){
+  .app{height:auto}
+  .main{grid-template-columns:1fr}
+  .stage{height:62vh;min-height:360px;order:-1}
+  aside{border-right:0;overflow:visible}
+  .brand p{display:none}
+}
+@media (prefers-reduced-motion:reduce){.sw::after{transition:none}}
+</style>
+
+</head><body><div class="app">
+<header>
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 16 L3 4 M3 16 L17 16" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round"/><path d="M3 12 L8 6 L14 9 L15 16 Z" fill="var(--accent-ink)" opacity=".55"/></svg></div>
+    <div><h1>Linear Programming Animator</h1><p>線性規劃互動教學示範</p></div>
+  </div>
+  <div class="hbtns">
+    <button class="btn" id="btnP" aria-pressed="true">P 線</button>
+    <button class="btn" id="btnInt" aria-pressed="false">整數解</button>
+    <button class="btn primary" id="btnAnim"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 1 L11 6 L2 11 Z" fill="currentColor"/></svg>動畫求解</button>
+  </div>
+</header>
+<div class="main">
+  <aside>
+    <section class="blk obj">
+      <h2>目標函數 Objective function</h2>
+      <div class="eqrow" id="objRow"></div>
+      <div class="seg" role="group" aria-label="求最大或最小">
+        <button id="gMax" aria-pressed="true">求最大值 Max</button><button id="gMin" aria-pressed="false">求最小值 Min</button>
+      </div>
+      <div class="big" id="pNow">P = 0</div>
+      <p class="hint">拖動圖上的紫色虛線來改變 P 值</p>
+    </section>
+    <section class="blk">
+      <h2>系統限制 System constraints</h2>
+      <div id="sysRows" style="display:grid;gap:8px"></div>
+    </section>
+    <section class="blk">
+      <h2>限制條件 Constraints <small>Ax + By ? C（最多 3 條）</small></h2>
+      <div id="cons" style="display:grid;gap:10px"></div>
+      <button class="add" id="addC">＋ 新增限制條件</button>
+    </section>
+    <section class="blk">
+      <h2>結果 Result</h2>
+      <div class="res" id="result"></div>
+    </section>
+  </aside>
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="線性規劃圖像：可行域、限制條件直線及目標函數線"></canvas>
+    <div class="readout" id="readout">P = 0</div>
+    <div class="legend" id="legend"></div>
+    <div class="zoom">
+      <button id="zIn" aria-label="放大"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="zOut" aria-label="縮小"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button id="zFit" aria-label="重設視圖"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+(()=>{
+const OPS={'>=':'≥','>':'>','<=':'≤','<':'<'};
+const COLORS=['c1','c2','c3'];
+const S={
+  obj:{a:3,b:2}, goal:'max',
+  sys:{x:{on:true,op:'>='},y:{on:true,op:'>='}},
+  cons:[{A:1,B:1,op:'<=',C:10,col:0,on:true},{A:-1,B:2,op:'<=',C:8,col:1,on:true},{A:2,B:-1,op:'<=',C:5,col:2,on:true}],
+  showP:true, showInt:false, P:12, hl:null
+};
+const BIG=1000, EPS=1e-9;
+const $=id=>document.getElementById(id);
+const cv=$('cv'), ctx=cv.getContext('2d');
+const V={ox:5,oy:4,s:40};
+let T={}, R=null, anim=null;
+
+/* ---------- formatting ---------- */
+function frac(v){
+  if(!isFinite(v)) return '∞';
+  if(Math.abs(v-Math.round(v))<1e-7) return String(Math.round(v)).replace('-0','0');
+  for(let d=2;d<=60;d++){const n=v*d;if(Math.abs(n-Math.round(n))<1e-6)return (Math.round(n))+'/'+d;}
+  return (+v.toFixed(2)).toString();
+}
+const num=v=>(+(+v).toFixed(4)).toString();
+function lin(A,B){
+  const t=[];const term=(c,v)=>{if(c===0)return;const s=c<0?'−':'+';const m=Math.abs(c);t.push([s,(m===1?'':num(m))+v]);};
+  term(A,'x');term(B,'y');
+  if(!t.length)return '0';
+  return t.map((p,i)=>i===0?(p[0]==='−'?'−':'')+p[1]:' '+p[0]+' '+p[1]).join('');
+}
+const eqText=(A,B,op,C)=>lin(A,B)+' '+op+' '+num(C).replace('-','−');
+
+/* ---------- math ---------- */
+function norm(A,B,op,C){const s=(op[0]==='>')?-1:1;return{a:s*A,b:s*B,c:s*C,strict:op.length===1};}
+function halfPlanes(){
+  const h=[];
+  if(S.sys.x.on)h.push(norm(1,0,S.sys.x.op,0));
+  if(S.sys.y.on)h.push(norm(0,1,S.sys.y.op,0));
+  S.cons.forEach(c=>{if(c.on)h.push(norm(c.A,c.B,c.op,c.C));});
+  return h;
+}
+function clip(poly,h){
+  const out=[],f=p=>h.a*p[0]+h.b*p[1]-h.c;
+  for(let i=0;i<poly.length;i++){
+    const P=poly[i],Q=poly[(i+1)%poly.length],fp=f(P),fq=f(Q);
+    if(fp<=1e-9)out.push(P);
+    if((fp<-1e-9&&fq>1e-9)||(fp>1e-9&&fq<-1e-9)){const t=fp/(fp-fq);out.push([P[0]+t*(Q[0]-P[0]),P[1]+t*(Q[1]-P[1])]);}
+  }
+  const d=[];for(const p of out){const q=d[d.length-1];if(!q||Math.hypot(p[0]-q[0],p[1]-q[1])>1e-7)d.push(p);}
+  if(d.length>1&&Math.hypot(d[0][0]-d[d.length-1][0],d[0][1]-d[d.length-1][1])<1e-7)d.pop();
+  return d;
+}
+const val=p=>S.obj.a*p[0]+S.obj.b*p[1];
+const inside=(p,hp)=>hp.every(h=>{const f=h.a*p[0]+h.b*p[1]-h.c;return h.strict?f<-1e-9:f<=1e-9;});
+const onBox=p=>Math.abs(Math.abs(p[0])-BIG)<1e-6||Math.abs(Math.abs(p[1])-BIG)<1e-6;
+
+function solve(){
+  const hp=halfPlanes();
+  let poly=[[-BIG,-BIG],[BIG,-BIG],[BIG,BIG],[-BIG,BIG]];
+  for(const h of hp){poly=clip(poly,h);if(!poly.length)break;}
+  const r={hp,poly,feasible:poly.length>0};
+  if(r.feasible&&poly.length>=3){let a=0;for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length];a+=p[0]*q[1]-q[0]*p[1];}r.area=Math.abs(a/2);}else r.area=0;
+  // degenerate region with strict constraints is empty
+  if(r.feasible&&r.area<1e-9&&hp.some(h=>h.strict)) r.feasible=false;
+  if(!r.feasible)return r;
+  r.bounded=!poly.some(onBox);
+  r.verts=poly.filter(p=>!onBox(p)).map(p=>({p,v:val(p),in:inside(p,hp)}));
+  const sg=S.goal==='max'?1:-1;
+  const bestAll=Math.max(...poly.map(p=>sg*val(p)));
+  const bestReal=r.verts.length?Math.max(...r.verts.map(o=>sg*o.v)):-Infinity;
+  r.unbounded=bestAll>bestReal+1e-6;
+  if(!r.unbounded){
+    r.best=sg*bestReal;
+    r.opt=r.verts.filter(o=>Math.abs(sg*o.v-bestReal)<1e-6);
+    r.attained=r.opt.some(o=>o.in);
+  }
+  // integer optimum (only when region is bounded)
+  if(r.bounded){
+    const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);
+    const x0=Math.ceil(Math.min(...xs)-1e-9),x1=Math.floor(Math.max(...xs)+1e-9),y0=Math.ceil(Math.min(...ys)-1e-9),y1=Math.floor(Math.max(...ys)+1e-9);
+    const n=(x1-x0+1)*(y1-y0+1);
+    if(n>0&&n<=400000){
+      let best=-Infinity,pts=[],count=0;
+      for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){if(!inside([x,y],hp))continue;count++;const v=sg*val([x,y]);
+        if(v>best+1e-9){best=v;pts=[[x,y]];}else if(Math.abs(v-best)<1e-9)pts.push([x,y]);}
+      r.intCount=count; if(count){r.intBest=sg*best;r.intPts=pts;}
+    } else if(n>400000) r.intTooMany=true;
+  }
+  return r;
+}
+
+/* ---------- view ---------- */
+const W=()=>cv.clientWidth, H=()=>cv.clientHeight;
+const toPx=(x,y)=>[W()/2+(x-V.ox)*V.s, H()/2-(y-V.oy)*V.s];
+const toW=(px,py)=>[V.ox+(px-W()/2)/V.s, V.oy-(py-H()/2)/V.s];
+function fit(){
+  let pts=[[0,0]];
+  if(R&&R.feasible&&R.verts.length)pts=pts.concat(R.verts.map(o=>o.p));
+  S.cons.forEach(c=>{if(!c.on)return;if(c.A)pts.push([c.C/c.A,0]);if(c.B)pts.push([0,c.C/c.B]);});
+  pts=pts.filter(p=>Math.abs(p[0])<200&&Math.abs(p[1])<200);
+  const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+  let x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const w=Math.max(x1-x0,4),h=Math.max(y1-y0,4);
+  V.ox=(x0+x1)/2;V.oy=(y0+y1)/2;
+  V.s=Math.max(4,Math.min(W()/(w*1.45),H()/(h*1.45)));
+}
+function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(raw)));for(const m of[1,2,5,10])if(m*p>=raw)return m*p;return 10*p;}
+
+function readTokens(){
+  const cs=getComputedStyle(document.documentElement);
+  ['canvas','grid','grid2','axis','ink','muted','accent','region','region-edge','c1','c2','c3','sys','dot','panel'].forEach(k=>T[k]=cs.getPropertyValue('--'+k).trim());
+}
+
+/* line a x + b y = c clipped to the view rectangle, in px */
+function lineSeg(a,b,c){
+  const w=W(),h=H(),[X0,Y1]=toW(0,0),[X1,Y0]=toW(w,h);const pts=[];
+  if(Math.abs(b)>1e-12){for(const x of[X0,X1]){const y=(c-a*x)/b;if(y>=Y0-1e-9&&y<=Y1+1e-9)pts.push([x,y]);}}
+  if(Math.abs(a)>1e-12){for(const y of[Y0,Y1]){const x=(c-b*y)/a;if(x>=X0-1e-9&&x<=X1+1e-9)pts.push([x,y]);}}
+  if(pts.length<2)return null;
+  let best=[pts[0],pts[1]],d=0;
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){const dd=Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1]);if(dd>d){d=dd;best=[pts[i],pts[j]];}}
+  return best.map(p=>toPx(p[0],p[1]));
+}
+function drawLabel(seg,t,text,color){
+  const [p,q]=seg;let x=p[0]+(q[0]-p[0])*t,y=p[1]+(q[1]-p[1])*t;
+  let ang=Math.atan2(q[1]-p[1],q[0]-p[0]);if(ang>Math.PI/2)ang-=Math.PI;if(ang<-Math.PI/2)ang+=Math.PI;
+  ctx.save();ctx.translate(x,y);ctx.rotate(ang);
+  ctx.font='600 13px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.lineWidth=4;ctx.strokeStyle=T.canvas;ctx.lineJoin='round';ctx.strokeText(text,0,-4);
+  ctx.fillStyle=color;ctx.fillText(text,0,-4);ctx.restore();
+}
+
+function draw(){
+  const dpr=window.devicePixelRatio||1,w=W(),h=H();
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle=T.canvas;ctx.fillRect(0,0,w,h);
+  const [X0,Y1]=toW(0,0),[X1,Y0]=toW(w,h);
+  const step=niceStep(42/V.s);
+  // grid
+  ctx.lineWidth=1;
+  for(let x=Math.ceil(X0/step)*step;x<=X1;x+=step){const[px]=toPx(x,0);ctx.strokeStyle=T.grid;ctx.beginPath();ctx.moveTo(Math.round(px)+.5,0);ctx.lineTo(Math.round(px)+.5,h);ctx.stroke();}
+  for(let y=Math.ceil(Y0/step)*step;y<=Y1;y+=step){const[,py]=toPx(0,y);ctx.strokeStyle=T.grid;ctx.beginPath();ctx.moveTo(0,Math.round(py)+.5);ctx.lineTo(w,Math.round(py)+.5);ctx.stroke();}
+  // region
+  if(R.feasible&&R.poly.length>=3){
+    ctx.beginPath();R.poly.forEach((p,i)=>{const[a,b]=toPx(p[0],p[1]);i?ctx.lineTo(a,b):ctx.moveTo(a,b);});ctx.closePath();
+    ctx.fillStyle=T.region;ctx.fill();
+  }
+  // axes
+  const[ax,ay]=toPx(0,0);
+  ctx.strokeStyle=T.axis;ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(0,ay);ctx.lineTo(w,ay);ctx.moveTo(ax,0);ctx.lineTo(ax,h);ctx.stroke();
+  ctx.fillStyle=T.muted;ctx.font='11px "IBM Plex Mono",monospace';
+  const ly=Math.min(Math.max(ay+4,4),h-16), lx=Math.min(Math.max(ax-6,30),w-6);
+  ctx.textAlign='center';ctx.textBaseline='top';
+  for(let x=Math.ceil(X0/step)*step;x<=X1;x+=step){if(Math.abs(x)<step/2)continue;const[px]=toPx(x,0);ctx.fillText(frac(+x.toFixed(6)).replace('-','−'),px,ly);}
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let y=Math.ceil(Y0/step)*step;y<=Y1;y+=step){if(Math.abs(y)<step/2)continue;const[,py]=toPx(0,y);ctx.fillText(frac(+y.toFixed(6)).replace('-','−'),lx,py);}
+  ctx.font='italic 16px "Times New Roman",serif';ctx.fillStyle=T.axis;
+  ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText('x',w-8,Math.min(Math.max(ay-4,20),h-4));
+  ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('y',Math.min(Math.max(ax+6,6),w-20),8);
+  // system constraints (x=0 / y=0)
+  [['x',1,0],['y',0,1]].forEach(([k,a,b])=>{const s=S.sys[k];if(!s.on)return;const seg=lineSeg(a,b,0);if(!seg)return;
+    ctx.save();ctx.strokeStyle=T.sys;ctx.lineWidth=2.4;ctx.setLineDash(s.op.length===1?[7,6]:[]);
+    ctx.beginPath();ctx.moveTo(...seg[0]);ctx.lineTo(...seg[1]);ctx.stroke();ctx.restore();});
+  // user constraints
+  S.cons.forEach((c,i)=>{if(!c.on||(c.A===0&&c.B===0))return;const seg=lineSeg(c.A,c.B,c.C);if(!seg)return;
+    const col=T[COLORS[c.col]];
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.setLineDash(c.op.length===1?[8,6]:[]);
+    ctx.beginPath();ctx.moveTo(...seg[0]);ctx.lineTo(...seg[1]);ctx.stroke();ctx.restore();
+    drawLabel(seg,[.78,.62,.46][i%3],eqText(c.A,c.B,'=',c.C),col);
+  });
+  // vertices
+  if(R.feasible&&R.verts){
+    ctx.font='500 12px "IBM Plex Mono",monospace';
+    R.verts.forEach(o=>{const[px,py]=toPx(o.p[0],o.p[1]);
+      ctx.beginPath();ctx.arc(px,py,4.5,0,7);
+      if(o.in){ctx.fillStyle=T['region-edge'];ctx.fill();}else{ctx.fillStyle=T.canvas;ctx.fill();ctx.strokeStyle=T['region-edge'];ctx.lineWidth=1.8;ctx.stroke();}
+      const t='('+frac(o.p[0])+', '+frac(o.p[1])+')';
+      ctx.textAlign='left';ctx.textBaseline='top';ctx.lineWidth=4;ctx.strokeStyle=T.canvas;ctx.lineJoin='round';
+      ctx.strokeText(t,px+7,py+5);ctx.fillStyle=T.ink;ctx.fillText(t,px+7,py+5);});
+  }
+  // integer points
+  if(S.showInt&&R.feasible){
+    const n=(Math.floor(X1)-Math.ceil(X0)+1)*(Math.floor(Y1)-Math.ceil(Y0)+1);
+    if(n<60000){
+      const r=Math.max(2,Math.min(4,V.s/9));
+      ctx.fillStyle=T.dot;
+      for(let x=Math.ceil(X0);x<=X1;x++)for(let y=Math.ceil(Y0);y<=Y1;y++){if(!inside([x,y],R.hp))continue;const[px,py]=toPx(x,y);ctx.beginPath();ctx.arc(px,py,r,0,7);ctx.fill();}
+    }
+  }
+  // P line
+  const {a,b}=S.obj;
+  if(S.showP&&(a||b)){const seg=lineSeg(a,b,S.P);if(seg){
+    ctx.save();ctx.strokeStyle=T.accent;ctx.lineWidth=2.6;ctx.setLineDash([10,7]);
+    ctx.beginPath();ctx.moveTo(...seg[0]);ctx.lineTo(...seg[1]);ctx.stroke();ctx.restore();
+    drawLabel(seg,.3,'P = '+num(+S.P.toFixed(2)),T.accent);}}
+  // highlight
+  if(S.hl){S.hl.forEach(p=>{const[px,py]=toPx(p[0],p[1]);ctx.save();ctx.strokeStyle=T.accent;ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(px,py,10,0,7);ctx.stroke();ctx.globalAlpha=.18;ctx.fillStyle=T.accent;ctx.beginPath();ctx.arc(px,py,16,0,7);ctx.fill();ctx.restore();});}
+}
+
+/* ---------- UI ---------- */
+function stepper(id,value){
+  return `<div class="step"><button data-step="1" data-for="${id}" aria-label="加 1">+</button><input id="${id}" inputmode="decimal" value="${num(value)}" aria-label="係數"><button data-step="-1" data-for="${id}" aria-label="減 1">−</button></div>`;
+}
+const opSel=(id,v)=>`<select id="${id}" aria-label="不等號">${Object.entries(OPS).map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
+function renderStatic(){
+  $('objRow').innerHTML=`<span style="font-weight:600;color:var(--accent)">P =</span>${stepper('oa',S.obj.a)}<span class="var">x</span><span>+</span>${stepper('ob',S.obj.b)}<span class="var">y</span>`;
+  $('sysRows').innerHTML=['x','y'].map(k=>`<div class="sysrow"><span class="var">${k}</span>${opSel('s'+k,S.sys[k].op)}<span class="zero">0</span><button class="sw" role="switch" id="sw${k}" aria-checked="${S.sys[k].on}" aria-label="啟用 ${k} 限制"></button></div>`).join('');
+  renderCons();
+}
+function renderCons(){
+  $('cons').innerHTML=S.cons.map((c,i)=>`<div class="card${c.on?'':' off'}">
+    <div class="card-h"><span class="dot" style="background:var(--${COLORS[c.col]})"></span>限制 ${i+1}
+      <span class="grow"><button class="sw" role="switch" data-ton="${i}" aria-checked="${c.on}" aria-label="啟用限制 ${i+1}"></button>
+      <button class="icon" data-del="${i}" aria-label="刪除限制 ${i+1}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></div>
+    <div class="crow">${stepper('cA'+i,c.A)}<span class="var">x</span><span>+</span>${stepper('cB'+i,c.B)}<span class="var">y</span>${opSel('cO'+i,c.op)}${stepper('cC'+i,c.C)}</div>
+    <div class="preview" id="pv${i}">${eqText(c.A,c.B,OPS[c.op],c.C)}</div></div>`).join('');
+  $('addC').disabled=S.cons.length>=3;
+}
+function setFromInput(id,v){
+  let m;
+  if(id==='oa')S.obj.a=v;else if(id==='ob')S.obj.b=v;
+  else if(m=id.match(/^c([ABC])(\d)$/))S.cons[+m[2]][m[1]]=v;
+}
+function update(refit){
+  stopAnim();S.hl=null;
+  R=solve();
+  if(refit)fit();
+  S.cons.forEach((c,i)=>{const e=$('pv'+i);if(e)e.textContent=eqText(c.A,c.B,OPS[c.op],c.C);});
+  renderResult();refreshP();draw();
+}
+function refreshP(){const t='P = '+num(+S.P.toFixed(2));$('pNow').textContent=t;$('readout').textContent=t;$('readout').hidden=!S.showP;}
+function renderResult(){
+  const g=S.goal==='max'?'最大值':'最小值';const el=$('result');
+  const leg=[];
+  S.cons.forEach((c,i)=>{if(c.on)leg.push(`<span><i style="border-color:var(--${COLORS[c.col]})${c.op.length===1?';border-top-style:dashed':''}"></i>限制 ${i+1}</span>`);});
+  leg.push(`<span><i style="border-color:var(--accent);border-top-style:dashed"></i>P 線</span>`);
+  $('legend').innerHTML=leg.join('')+'<span style="opacity:.8">虛線 = 不包括邊界</span>';
+  if(!R.feasible){el.innerHTML=`<div class="verdict"><span class="tag warn">沒有可行解</span><br>所有限制條件沒有共同區域。</div>`;return;}
+  let h='';
+  if(R.unbounded){h+=`<div class="verdict"><span class="tag warn">無界</span><br>可行域向外無限延伸，P 沒有${g}。</div>`;}
+  else{
+    const pts=R.opt.map(o=>`(${frac(o.p[0])}, ${frac(o.p[1])})`).join(' 至 ');
+    if(R.attained) h+=`<div class="verdict"><span class="tag ok">${g}</span><br>P = <b>${frac(R.best)}</b>，在 <b>${pts}</b>${R.opt.length>1?'（整條邊上皆是最優解）':''}</div>`;
+    else h+=`<div class="verdict"><span class="tag warn">${g}不存在</span><br>最優點 <b>${pts}</b> 在嚴格不等式（&lt; 或 &gt;）的邊界上，不屬於可行域。P 可以無限接近 <b>${frac(R.best)}</b> 但達不到。</div>`;
+  }
+  if(R.bounded){
+    if(R.intTooMany) h+=`<div class="verdict">可行域太大，未能列出整數解。</div>`;
+    else if(R.intCount) h+=`<div class="verdict"><span class="tag ok">整數解</span><br>共 ${R.intCount} 個整數點。整數${g} P = <b>${frac(R.intBest)}</b>，在 <b>${R.intPts.map(p=>`(${p[0]}, ${p[1]})`).join('、')}</b></div>`;
+    else h+=`<div class="verdict"><span class="tag warn">整數解</span><br>可行域內沒有整數點。</div>`;
+  } else h+=`<div class="verdict">可行域無界，不列出全部整數解（打開「整數解」可看圖中的點）。</div>`;
+  if(R.verts.length){
+    const sorted=R.verts.slice().sort((p,q)=>Math.atan2(p.p[1]-cy(),p.p[0]-cx())-Math.atan2(q.p[1]-cy(),q.p[0]-cx()));
+    h+=`<table><thead><tr><th>頂點 (x, y)</th><th>P = ${lin(S.obj.a,S.obj.b)}</th></tr></thead><tbody>`+
+      sorted.map(o=>`<tr class="${!o.in?'excl':(!R.unbounded&&R.opt.includes(o)?'best':'')}"><td>(${frac(o.p[0])}, ${frac(o.p[1])})</td><td>${frac(o.v)}</td></tr>`).join('')+'</tbody></table>';
+    if(R.verts.some(o=>!o.in))h+=`<p class="hint" style="text-align:left">刪除線 = 頂點在嚴格不等式邊界上，不在可行域內</p>`;
+  }
+  el.innerHTML=h;
+  function cx(){return R.verts.reduce((s,o)=>s+o.p[0],0)/R.verts.length}
+  function cy(){return R.verts.reduce((s,o)=>s+o.p[1],0)/R.verts.length}
+}
+
+/* ---------- animation ---------- */
+function stopAnim(){if(anim){cancelAnimationFrame(anim.raf);anim=null;}}
+function animate(){
+  stopAnim();S.hl=null;
+  if(!R.feasible||(!S.obj.a&&!S.obj.b)){draw();return;}
+  S.showP=true;$('btnP').setAttribute('aria-pressed','true');
+  const sg=S.goal==='max'?1:-1;
+  const vis=R.poly.map(p=>[Math.max(Math.min(p[0],V.ox+W()/V.s),V.ox-W()/V.s),Math.max(Math.min(p[1],V.oy+H()/V.s),V.oy-H()/V.s)]);
+  const vals=vis.map(val);
+  const start=sg>0?Math.min(...vals):Math.max(...vals);
+  let target,hl;
+  if(R.unbounded){target=sg>0?Math.max(...vals):Math.min(...vals);hl=null;}
+  else if(S.showInt&&R.intPts){target=R.intBest;hl=R.intPts;}
+  else{target=R.best;hl=R.opt.map(o=>o.p);}
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const dur=reduce?0:2200,t0=performance.now();
+  const tick=now=>{const t=dur?Math.min(1,(now-t0)/dur):1;const e=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    S.P=start+(target-start)*e;refreshP();draw();
+    if(t<1)anim.raf=requestAnimationFrame(tick);else{anim=null;S.P=target;S.hl=hl;refreshP();draw();}};
+  anim={raf:requestAnimationFrame(tick)};
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const st=e.target.closest('[data-step]');
+  if(st){const inp=$(st.dataset.for);const v=(parseFloat(inp.value)||0)+(+st.dataset.step);inp.value=num(v);setFromInput(inp.id,v);update(false);return;}
+  const del=e.target.closest('[data-del]');
+  if(del){S.cons.splice(+del.dataset.del,1);renderCons();update(false);return;}
+  const ton=e.target.closest('[data-ton]');
+  if(ton){const c=S.cons[+ton.dataset.ton];c.on=!c.on;renderCons();update(false);return;}
+});
+document.addEventListener('input',e=>{
+  if(e.target.tagName!=='INPUT')return;const v=parseFloat(e.target.value.replace('−','-'));
+  if(!isNaN(v)){setFromInput(e.target.id,v);update(false);}
+});
+document.addEventListener('change',e=>{
+  const id=e.target.id;let m;
+  if(id==='sx'||id==='sy'){S.sys[id[1]].op=e.target.value;update(false);}
+  else if(m=id.match(/^cO(\d)$/)){S.cons[+m[1]].op=e.target.value;update(false);}
+  else if(e.target.tagName==='INPUT'){const v=parseFloat(e.target.value.replace('−','-'));if(isNaN(v))e.target.value=num(0);}
+});
+$('sysRows').addEventListener('click',e=>{const b=e.target.closest('.sw');if(!b)return;const k=b.id.slice(2);S.sys[k].on=!S.sys[k].on;b.setAttribute('aria-checked',S.sys[k].on);update(false);});
+$('addC').onclick=()=>{if(S.cons.length>=3)return;const used=S.cons.map(c=>c.col);const col=[0,1,2].find(i=>!used.includes(i));
+  S.cons.push({A:1,B:1,op:'<=',C:6,col,on:true});renderCons();update(false);};
+$('gMax').onclick=()=>{S.goal='max';$('gMax').setAttribute('aria-pressed','true');$('gMin').setAttribute('aria-pressed','false');update(false);};
+$('gMin').onclick=()=>{S.goal='min';$('gMin').setAttribute('aria-pressed','true');$('gMax').setAttribute('aria-pressed','false');update(false);};
+$('btnP').onclick=()=>{S.showP=!S.showP;$('btnP').setAttribute('aria-pressed',S.showP);refreshP();draw();};
+$('btnInt').onclick=()=>{S.showInt=!S.showInt;$('btnInt').setAttribute('aria-pressed',S.showInt);S.hl=null;draw();};
+$('btnAnim').onclick=animate;
+const zoomAt=(f,px,py)=>{const[wx,wy]=toW(px,py);V.s=Math.min(400,Math.max(2,V.s*f));const[nx,ny]=toW(px,py);V.ox+=wx-nx;V.oy+=wy-ny;draw();};
+$('zIn').onclick=()=>zoomAt(1.25,W()/2,H()/2);
+$('zOut').onclick=()=>zoomAt(1/1.25,W()/2,H()/2);
+$('zFit').onclick=()=>{fit();draw();};
+cv.addEventListener('wheel',e=>{e.preventDefault();const r=cv.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+
+let drag=null;
+const nearP=(px,py)=>{const{a,b}=S.obj;if(!S.showP||(!a&&!b))return false;const[x,y]=toW(px,py);return Math.abs(a*x+b*y-S.P)/Math.hypot(a,b)*V.s<14;};
+cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+  cv.setPointerCapture(e.pointerId);stopAnim();
+  drag=nearP(px,py)?{mode:'p'}:{mode:'pan',px,py,ox:V.ox,oy:V.oy};
+  if(drag.mode==='p'){S.hl=null;cv.style.cursor='grabbing';}});
+cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+  if(!drag){cv.style.cursor=nearP(px,py)?'grab':'move';return;}
+  if(drag.mode==='p'){const[x,y]=toW(px,py);S.P=Math.round((S.obj.a*x+S.obj.b*y)*100)/100;refreshP();draw();}
+  else{V.ox=drag.ox-(px-drag.px)/V.s;V.oy=drag.oy+(py-drag.py)/V.s;draw();}});
+const end=()=>{drag=null;cv.style.cursor='';};
+cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+
+const theme=()=>{readTokens();draw();};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);
+new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+let fitted=false;
+new ResizeObserver(()=>{if(!fitted&&W()>0){fit();fitted=true;}draw();}).observe($('stage'));
+
+renderStatic();readTokens();R=solve();
+S.P=R.best!=null?Math.round(R.best*0.5):0;
+renderResult();refreshP();
+if(document.fonts)document.fonts.ready.then(draw);
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
+</script>
+</body></html>
